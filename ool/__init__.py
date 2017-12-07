@@ -90,17 +90,22 @@ class VersionedMixin(object):
                 )
                 setattr(self, version_field.attname, old_version + 1)
 
-        updated = super(VersionedMixin, self)._do_update(
-            base_qs=base_qs.filter(**{version_field.attname: old_version}),
-            using=using,
-            pk_val=pk_val,
-            values=values,
-            update_fields=update_fields if values else None,  # Make sure base_qs is always checked
-            forced_update=forced_update
-        )
+        updated = False
 
-        if not updated and base_qs.filter(pk=pk_val).exists():
-            raise ConcurrentUpdate
+        try:
+            updated = super(VersionedMixin, self)._do_update(
+                base_qs=base_qs.filter(**{version_field.attname: old_version}),
+                using=using,
+                pk_val=pk_val,
+                values=values,
+                update_fields=update_fields if values else None,  # Make sure base_qs is always checked
+                forced_update=forced_update
+            )
+            if not updated and base_qs.filter(pk=pk_val).exists():
+                raise ConcurrentUpdate
+        finally:
+            if not updated:
+                setattr(self, version_field.attname, old_version)
 
         return updated
 
